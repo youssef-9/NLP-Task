@@ -1,0 +1,54 @@
+import os
+import numpy as np
+import pandas as pd
+import urllib.request
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score
+from scipy.spatial import distance
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.utils import to_categorical
+train_url = "https://archive.ics.uci.edu/ml/machine-learning-databases/optdigits/optdigits.tra"
+test_url = "https://archive.ics.uci.edu/ml/machine-learning-databases/optdigits/optdigits.tes"
+train_file = "optdigits.tra"
+test_file = "optdigits.tes"
+if not os.path.exists(train_file):
+    urllib.request.urlretrieve(train_url, train_file)
+if not os.path.exists(test_file):
+    urllib.request.urlretrieve(test_url, test_file)
+data = pd.read_csv(train_file, header=None)
+test_data = pd.read_csv(test_file, header=None)
+X_train = data.iloc[:, :-1].values
+y_train = data.iloc[:, -1].values
+X_test = test_data.iloc[:, :-1].values
+y_test = test_data.iloc[:, -1].values
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+def euclidean_distance(a, b):
+    return distance.euclidean(a, b)
+def k_nearest_neighbors(X_train, y_train, X_test, k=3):
+    predictions = []
+    for test_point in X_test:
+        distances = [euclidean_distance(test_point, x) for x in X_train]
+        k_indices = np.argsort(distances)[:k]
+        k_nearest_labels = [y_train[i] for i in k_indices]
+        predictions.append(max(set(k_nearest_labels), key=k_nearest_labels.count))
+    return np.array(predictions)
+k = 3
+y_pred = k_nearest_neighbors(X_train, y_train, X_test, k)
+accuracy = accuracy_score(y_test, y_pred)
+print(f"NumPy k-NN Classifier Accuracy: {accuracy:.4f}")
+y_train_oh = to_categorical(y_train, num_classes=10)
+y_test_oh = to_categorical(y_test, num_classes=10)
+model = Sequential([
+    Dense(64, activation='relu', input_shape=(64,)),
+    Dense(32, activation='relu'),
+    Dense(10, activation='softmax')
+])
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+model.fit(X_train, y_train_oh, epochs=20, batch_size=32, validation_data=(X_test, y_test_oh))
+test_loss, test_acc = model.evaluate(X_test, y_test_oh)
+print(f"Keras Neural Network Accuracy: {test_acc:.4f}")
